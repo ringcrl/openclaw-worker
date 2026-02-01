@@ -1,6 +1,6 @@
 # API 参考文档
 
-本 Worker 采用 **纯 API 驱动架构**。所有配置都通过 API 动态管理，只需要 3 个环境变量。
+**纯 API 驱动架构**。所有配置都通过 API 动态管理，只需要 3 个环境变量。
 
 ## 环境变量
 
@@ -27,15 +27,18 @@ curl -H "Authorization: Bearer <MOLTBOT_GATEWAY_TOKEN>" \
 ### 网关管理
 
 #### GET /api/status
+
 获取当前网关状态。
 
 **请求：**
+
 ```bash
 curl -H "Authorization: Bearer $TOKEN" \
   https://{host}/api/status
 ```
 
 **响应：**
+
 ```json
 {
   "status": "running",
@@ -45,9 +48,11 @@ curl -H "Authorization: Bearer $TOKEN" \
 ```
 
 #### POST /api/gateway/restart
+
 重启网关进程。
 
 **请求：**
+
 ```bash
 curl -X POST \
   -H "Authorization: Bearer $TOKEN" \
@@ -55,6 +60,7 @@ curl -X POST \
 ```
 
 **响应：**
+
 ```json
 {
   "success": true,
@@ -66,15 +72,16 @@ curl -X POST \
 ### 动态配置
 
 #### GET /api/config
-获取当前配置（敏感 token 已脱敏）。
 
 **请求：**
+
 ```bash
 curl -H "Authorization: Bearer $TOKEN" \
   https://{host}/api/config
 ```
 
 **响应：**
+
 ```json
 {
   "config": {
@@ -90,9 +97,11 @@ curl -H "Authorization: Bearer $TOKEN" \
 ```
 
 #### POST /api/config/telegram
+
 配置 Telegram 机器人。
 
 **请求：**
+
 ```bash
 curl -X POST \
   -H "Authorization: Bearer $TOKEN" \
@@ -105,6 +114,7 @@ curl -X POST \
 ```
 
 **响应：**
+
 ```json
 {
   "success": true,
@@ -113,13 +123,16 @@ curl -X POST \
 ```
 
 **参数：**
+
 - `botToken` (必需): 从 @BotFather 获取的 Telegram bot token
 - `dmPolicy` (可选): 私聊策略 - `"pair-first"` (默认), `"allow"`, 或 `"deny"`
 
 #### POST /api/config/discord
+
 配置 Discord 机器人。
 
 **请求：**
+
 ```bash
 curl -X POST \
   -H "Authorization: Bearer $TOKEN" \
@@ -132,6 +145,7 @@ curl -X POST \
 ```
 
 **响应：**
+
 ```json
 {
   "success": true,
@@ -140,13 +154,16 @@ curl -X POST \
 ```
 
 **参数：**
+
 - `botToken` (必需): Discord bot token
 - `dmPolicy` (可选): 私聊策略 - `"pair-first"` (默认), `"allow"`, 或 `"deny"`
 
 #### POST /api/config/slack
+
 配置 Slack 机器人。
 
 **请求：**
+
 ```bash
 curl -X POST \
   -H "Authorization: Bearer $TOKEN" \
@@ -159,6 +176,7 @@ curl -X POST \
 ```
 
 **响应：**
+
 ```json
 {
   "success": true,
@@ -167,13 +185,16 @@ curl -X POST \
 ```
 
 **参数：**
+
 - `botToken` (必需): Slack Bot User OAuth Token (以 `xoxb-` 开头)
 - `appToken` (必需): Slack App-Level Token (以 `xapp-` 开头)
 
 #### DELETE /api/config/:channel
+
 删除指定渠道的配置。
 
 **请求：**
+
 ```bash
 curl -X DELETE \
   -H "Authorization: Bearer $TOKEN" \
@@ -181,6 +202,7 @@ curl -X DELETE \
 ```
 
 **响应：**
+
 ```json
 {
   "success": true,
@@ -280,6 +302,7 @@ curl -X POST \
 ## 错误响应
 
 ### 401 未授权
+
 ```json
 {
   "error": "Unauthorized",
@@ -289,6 +312,7 @@ curl -X POST \
 ```
 
 ### 400 错误请求
+
 ```json
 {
   "error": "botToken is required"
@@ -296,6 +320,7 @@ curl -X POST \
 ```
 
 ### 500 内部服务器错误
+
 ```json
 {
   "error": "Failed to update configuration"
@@ -322,7 +347,7 @@ R2 集成示例：
 
 ```typescript
 // 启动时从 R2 加载配置
-const configObject = await env.R2_BUCKET.get('moltbot-config.json');
+const configObject = await env.R2_BUCKET.get("moltbot-config.json");
 const config = configObject ? await configObject.json() : {};
 
 // 应用配置到网关...
