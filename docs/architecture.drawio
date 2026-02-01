@@ -1,10 +1,10 @@
 <mxfile host="65bd71144e">
     <diagram name="OpenClaw Worker 架构 (API 驱动)" id="openclaw-worker-arch">
-        <mxGraphModel dx="1360" dy="308" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="800" math="0" shadow="0">
+        <mxGraphModel dx="965" dy="328" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="800" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
-                <mxCell id="title" value="OpenClaw + 函数架构图 (API 驱动)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=22;fontStyle=1;" parent="1" vertex="1">
+                <mxCell id="title" value="OpenClaw 自托管架构图 (API 驱动)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=22;fontStyle=1;" parent="1" vertex="1">
                     <mxGeometry x="450" y="20" width="400" height="40" as="geometry"/>
                 </mxCell>
                 <mxCell id="api-client" value="API 客户端 / 浏览器" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;" parent="1" vertex="1">
@@ -13,7 +13,7 @@
                 <mxCell id="arrow1" value="HTTP&lt;br&gt;Bearer Token 认证" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;fontSize=11;" parent="1" source="api-client" target="worker-container" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="worker-container" value="函数层" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=15;fontStyle=1;align=center;verticalAlign=top;container=1;" parent="1" vertex="1">
+                <mxCell id="worker-container" value="Cloudflare Worker (环境变量 + 认证)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=15;fontStyle=1;align=center;verticalAlign=top;container=1;" parent="1" vertex="1">
                     <mxGeometry x="180" y="180" width="900" height="220" as="geometry"/>
                 </mxCell>
                 <mxCell id="worker-api-auth" value="API 认证&#xa;Bearer Token 验证&#xa;/api/* 保护" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=center;verticalAlign=middle;fontStyle=1;" parent="worker-container" vertex="1">
@@ -28,40 +28,37 @@
                 <mxCell id="worker-proxy" value="代理层&lt;br&gt;HTTP&lt;br&gt;错误转换" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=center;verticalAlign=middle;" parent="worker-container" vertex="1">
                     <mxGeometry x="510" y="40" width="140" height="70" as="geometry"/>
                 </mxCell>
-                <mxCell id="worker-sandbox-api" value="Sandbox API&#xa;getSandbox()&#xa;containerFetch()" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=center;verticalAlign=middle;" parent="worker-container" vertex="1">
-                    <mxGeometry x="670" y="40" width="140" height="70" as="geometry"/>
+                <mxCell id="worker-sandbox-api" value="容器代理&#xa;EXTERNAL_BACKEND_URL&#xa;HTTP Headers 传递" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=center;verticalAlign=middle;" parent="worker-container" vertex="1">
+                    <mxGeometry x="670" y="40" width="180" height="70" as="geometry"/>
                 </mxCell>
-                <mxCell id="worker-config" value="配置 (仅 3 个环境变量)&#xa;• MOLTBOT_GATEWAY_TOKEN&#xa;• ANTHROPIC_API_KEY&#xa;• ANTHROPIC_BASE_URL (可选)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=left;verticalAlign=middle;fontStyle=1;spacingLeft=8;" parent="worker-container" vertex="1">
+                <mxCell id="worker-config" value="配置 (环境变量)&lt;br&gt;• MOLTBOT_GATEWAY_TOKEN&lt;br&gt;• ANTHROPIC_API_KEY&lt;br&gt;• ANTHROPIC_BASE_URL&lt;br&gt;• EXTERNAL_BACKEND_URL" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=left;verticalAlign=middle;fontStyle=1;spacingLeft=8;" parent="worker-container" vertex="1">
                     <mxGeometry x="30" y="130" width="380" height="60" as="geometry"/>
                 </mxCell>
-                <mxCell id="arrow2" value="代理 HTTP&lt;br&gt;端口 18789" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;fontSize=11;" parent="1" source="worker-container" target="sandbox-container" edge="1">
+                <mxCell id="arrow2" value="HTTP 代理&lt;br&gt;端口 18789&lt;br&gt;Headers 传递环境变量" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;fontSize=11;" parent="1" source="worker-container" target="sandbox-container" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="sandbox-container" value="Cloudflare Sandbox (容器)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=15;fontStyle=1;align=center;verticalAlign=top;container=1;" parent="1" vertex="1">
-                    <mxGeometry x="180" y="460" width="900" height="200" as="geometry"/>
+                <mxCell id="sandbox-container" value="亲王管容器 (Docker)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=15;fontStyle=1;align=center;verticalAlign=top;container=1;" parent="1" vertex="1">
+                    <mxGeometry x="180" y="480" width="900" height="150" as="geometry"/>
                 </mxCell>
-                <mxCell id="sandbox-startup" value="启动脚本&lt;br&gt;start-moltbot.sh" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=center;verticalAlign=middle;" parent="sandbox-container" vertex="1">
-                    <mxGeometry x="30" y="40" width="140" height="60" as="geometry"/>
+                <mxCell id="sandbox-startup" value="Dockerfile&#xa;Node.js 22 + OpenClaw CLI&#xa;端口 18789" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=center;verticalAlign=middle;" parent="sandbox-container" vertex="1">
+                    <mxGeometry x="30" y="30" width="150" height="45" as="geometry"/>
                 </mxCell>
                 <mxCell id="sandbox-gateway" value="OpenClaw 网关&#xa;端口 18789&#xa;Web UI · WebSocket" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=center;verticalAlign=middle;" parent="sandbox-container" vertex="1">
-                    <mxGeometry x="190" y="40" width="140" height="60" as="geometry"/>
+                    <mxGeometry x="190" y="30" width="140" height="45" as="geometry"/>
                 </mxCell>
-                <mxCell id="sandbox-config-api" value="配置文件管理&#xa;clawdbot.json&#xa;API 动态更新" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=center;verticalAlign=middle;fontStyle=1;" parent="sandbox-container" vertex="1">
-                    <mxGeometry x="350" y="40" width="140" height="60" as="geometry"/>
+                <mxCell id="sandbox-config-api" value="持久化存储&#xa;/root/.clawdbot&#xa;配置 + 数据" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=center;verticalAlign=middle;fontStyle=1;" parent="sandbox-container" vertex="1">
+                    <mxGeometry x="350" y="30" width="140" height="45" as="geometry"/>
                 </mxCell>
                 <mxCell id="sandbox-runtime" value="Agent 运行时&lt;br&gt;Skills · 工作空间" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=center;verticalAlign=middle;" parent="sandbox-container" vertex="1">
-                    <mxGeometry x="510" y="40" width="140" height="60" as="geometry"/>
+                    <mxGeometry x="510" y="30" width="140" height="45" as="geometry"/>
                 </mxCell>
                 <mxCell id="sandbox-channels" value="聊天渠道&#xa;(API 配置)&#xa;Telegram/Discord/Slack" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=center;verticalAlign=middle;" parent="sandbox-container" vertex="1">
-                    <mxGeometry x="670" y="40" width="140" height="60" as="geometry"/>
-                </mxCell>
-                <mxCell id="sandbox-node" value="运行环境&#xa;Node.js 22 · Linux" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=center;verticalAlign=middle;" parent="sandbox-container" vertex="1">
-                    <mxGeometry x="30" y="120" width="300" height="50" as="geometry"/>
+                    <mxGeometry x="670" y="30" width="140" height="45" as="geometry"/>
                 </mxCell>
                 <mxCell id="api-workflow" value="API 工作流程&#xa;━━━━━━━━━━&#xa;1. POST /api/config/telegram&#xa;2. Bearer Token 验证&#xa;3. 写入容器配置文件&#xa;4. 网关自动重启&#xa;5. Telegram bot 上线&#xa;&#xa;✅ 无需重新部署" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;align=left;verticalAlign=top;fontStyle=1;spacingLeft=8;spacingTop=5;" parent="1" vertex="1">
                     <mxGeometry x="1100" y="180" width="140" height="180" as="geometry"/>
                 </mxCell>
-                <mxCell id="features" value="核心特性&lt;br&gt;━━━━━━&lt;br&gt;✅ 纯 API 驱动&lt;br&gt;✅ 仅 3 个环境变量&lt;br&gt;✅ Bearer Token 认证&lt;br&gt;✅ 无 Web 管理界面&lt;br&gt;✅ 动态配置渠道" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;align=left;verticalAlign=top;fontStyle=1;spacingLeft=8;spacingTop=5;" parent="1" vertex="1">
+                <mxCell id="features" value="自托管优势&lt;br&gt;━━━━━━&lt;br&gt;✅ 数据持久化&lt;br&gt;✅ 平台无关性&lt;br&gt;✅ 完全控制权&lt;br&gt;✅ 可扩展性" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;align=left;verticalAlign=top;fontStyle=1;spacingLeft=8;spacingTop=5;" parent="1" vertex="1">
                     <mxGeometry x="1100" y="380" width="140" height="130" as="geometry"/>
                 </mxCell>
             </root>
