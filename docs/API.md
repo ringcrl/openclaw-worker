@@ -19,7 +19,7 @@ npx wrangler secret put ANTHROPIC_BASE_URL       # 自定义 Anthropic 端点
 
 ```bash
 curl -H "Authorization: Bearer <MOLTBOT_GATEWAY_TOKEN>" \
-  https://your-worker.workers.dev/api/status
+  https://{host}/api/status
 ```
 
 ## API 端点
@@ -32,7 +32,7 @@ curl -H "Authorization: Bearer <MOLTBOT_GATEWAY_TOKEN>" \
 **请求：**
 ```bash
 curl -H "Authorization: Bearer $TOKEN" \
-  https://your-worker.workers.dev/api/status
+  https://{host}/api/status
 ```
 
 **响应：**
@@ -51,7 +51,7 @@ curl -H "Authorization: Bearer $TOKEN" \
 ```bash
 curl -X POST \
   -H "Authorization: Bearer $TOKEN" \
-  https://your-worker.workers.dev/api/gateway/restart
+  https://{host}/api/gateway/restart
 ```
 
 **响应：**
@@ -71,7 +71,7 @@ curl -X POST \
 **请求：**
 ```bash
 curl -H "Authorization: Bearer $TOKEN" \
-  https://your-worker.workers.dev/api/config
+  https://{host}/api/config
 ```
 
 **响应：**
@@ -101,7 +101,7 @@ curl -X POST \
     "botToken": "123456:ABC-DEF...",
     "dmPolicy": "pair-first"
   }' \
-  https://your-worker.workers.dev/api/config/telegram
+  https://{host}/api/config/telegram
 ```
 
 **响应：**
@@ -128,7 +128,7 @@ curl -X POST \
     "botToken": "your-discord-bot-token",
     "dmPolicy": "pair-first"
   }' \
-  https://your-worker.workers.dev/api/config/discord
+  https://{host}/api/config/discord
 ```
 
 **响应：**
@@ -155,7 +155,7 @@ curl -X POST \
     "botToken": "xoxb-...",
     "appToken": "xapp-..."
   }' \
-  https://your-worker.workers.dev/api/config/slack
+  https://{host}/api/config/slack
 ```
 
 **响应：**
@@ -177,7 +177,7 @@ curl -X POST \
 ```bash
 curl -X DELETE \
   -H "Authorization: Bearer $TOKEN" \
-  https://your-worker.workers.dev/api/config/telegram
+  https://{host}/api/config/telegram
 ```
 
 **响应：**
@@ -207,7 +207,7 @@ npm run deploy
 
 # 3. 保存 token 用于 API 调用
 export TOKEN="my-secret-token-123"
-export WORKER_URL="https://your-worker.workers.dev"
+export HOST="https://{host}"
 ```
 
 ### 配置 Telegram
@@ -223,11 +223,11 @@ curl -X POST \
   -d '{
     "botToken": "123456:ABC-DEF..."
   }' \
-  $WORKER_URL/api/config/telegram
+  $HOST/api/config/telegram
 
 # 4. 检查配置
 curl -H "Authorization: Bearer $TOKEN" \
-  $WORKER_URL/api/config
+  $HOST/api/config
 ```
 
 ### 配置 Discord
@@ -243,7 +243,7 @@ curl -X POST \
   -d '{
     "botToken": "your-discord-bot-token"
   }' \
-  $WORKER_URL/api/config/discord
+  $HOST/api/config/discord
 ```
 
 ### 配置 Slack
@@ -260,7 +260,7 @@ curl -X POST \
     "botToken": "xoxb-...",
     "appToken": "xapp-..."
   }' \
-  $WORKER_URL/api/config/slack
+  $HOST/api/config/slack
 ```
 
 ### 更新配置
@@ -269,12 +269,12 @@ curl -X POST \
 # 删除 Telegram 配置
 curl -X DELETE \
   -H "Authorization: Bearer $TOKEN" \
-  $WORKER_URL/api/config/telegram
+  $HOST/api/config/telegram
 
 # 重启网关以应用更改
 curl -X POST \
   -H "Authorization: Bearer $TOKEN" \
-  $WORKER_URL/api/gateway/restart
+  $HOST/api/gateway/restart
 ```
 
 ## 错误响应
@@ -308,7 +308,7 @@ curl -X POST \
 - **Token 安全**：永远不要将 token 提交到 git。始终使用 `wrangler secret put`
 - **容器持久化**：配置存储在容器内存中。如果容器重启，需要通过 API 重新配置
 - **DEV_MODE**：设备配对默认被跳过（硬编码 `DEV_MODE=true`）
-- **WebSocket**：网关 WebSocket 端点需要 token 作为查询参数：`wss://your-worker.workers.dev/ws?token=YOUR_TOKEN`
+- **WebSocket**：网关 WebSocket 端点需要 token 作为查询参数：`wss://{host}/ws?token=YOUR_TOKEN`
 
 ## 高级：配置持久化
 
@@ -339,28 +339,28 @@ const config = configObject ? await configObject.json() : {};
 set -e
 
 TOKEN="your-token"
-WORKER_URL="https://your-worker.workers.dev"
+HOST="https://{host}"
 
 # Telegram
 curl -X POST \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d "{\"botToken\": \"$TELEGRAM_BOT_TOKEN\"}" \
-  $WORKER_URL/api/config/telegram
+  $HOST/api/config/telegram
 
 # Discord
 curl -X POST \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d "{\"botToken\": \"$DISCORD_BOT_TOKEN\"}" \
-  $WORKER_URL/api/config/discord
+  $HOST/api/config/discord
 
 # Slack
 curl -X POST \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d "{\"botToken\": \"$SLACK_BOT_TOKEN\", \"appToken\": \"$SLACK_APP_TOKEN\"}" \
-  $WORKER_URL/api/config/slack
+  $HOST/api/config/slack
 
 echo "✅ All channels configured!"
 ```
@@ -374,12 +374,12 @@ echo "✅ All channels configured!"
 # healthcheck.sh
 
 STATUS=$(curl -s -H "Authorization: Bearer $TOKEN" \
-  $WORKER_URL/api/status | jq -r '.status')
+  $HOST/api/status | jq -r '.status')
 
 if [ "$STATUS" != "running" ]; then
   echo "⚠️  Gateway is $STATUS, restarting..."
   curl -X POST -H "Authorization: Bearer $TOKEN" \
-    $WORKER_URL/api/gateway/restart
+    $HOST/api/gateway/restart
 else
   echo "✅ Gateway is healthy"
 fi
@@ -394,7 +394,7 @@ fi
 # backup-config.sh
 
 curl -H "Authorization: Bearer $TOKEN" \
-  $WORKER_URL/api/config | \
+  $HOST/api/config | \
   jq '.' > "config-backup-$(date +%Y%m%d-%H%M%S).json"
 
 echo "✅ Configuration backed up"
