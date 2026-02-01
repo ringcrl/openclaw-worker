@@ -42,7 +42,7 @@ Browser/API Client
 │  Cloudflare Sandbox      │
 │  - OpenClaw Gateway      │
 │  - Control UI            │
-│  - WebSocket RPC         │
+│  - API RPC               │
 │  - Dynamic Config        │
 └──────────────────────────┘
 ```
@@ -111,7 +111,7 @@ https://your-worker.workers.dev/?token=<MOLTBOT_GATEWAY_TOKEN>
 
 ## Environment Variables
 
-Only **3 environment variables** are required:
+Only **2 required environment variables**, plus 2 optional ones:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
@@ -119,7 +119,6 @@ Only **3 environment variables** are required:
 | `ANTHROPIC_API_KEY` | Yes | Anthropic API key |
 | `ANTHROPIC_BASE_URL` | No | Custom Anthropic endpoint (for AI Gateway) |
 | `SANDBOX_SLEEP_AFTER` | No | Container sleep timeout: `'never'` (default) or duration like `'10m'` |
-| `DEBUG_ROUTES` | No | Set to `'true'` to enable `/debug/*` routes |
 
 ## API Endpoints
 
@@ -153,11 +152,6 @@ Access the Control UI:
 https://your-worker.workers.dev/?token=<MOLTBOT_GATEWAY_TOKEN>
 ```
 
-Connect via WebSocket:
-```
-wss://your-worker.workers.dev/ws?token=<MOLTBOT_GATEWAY_TOKEN>
-```
-
 ## Container Lifecycle
 
 By default, the sandbox container stays alive indefinitely (`SANDBOX_SLEEP_AFTER=never`). This is recommended because cold starts take 1-2 minutes.
@@ -170,20 +164,6 @@ npx wrangler secret put SANDBOX_SLEEP_AFTER
 ```
 
 **Note:** When the container sleeps and restarts, all channel configurations will be lost. You'll need to reconfigure via API.
-
-## Debug Endpoints
-
-Debug endpoints are available at `/debug/*` when enabled (requires `DEBUG_ROUTES=true`):
-
-- `GET /debug/processes` - List all container processes
-- `GET /debug/logs?id=<process_id>` - Get logs for a specific process
-- `GET /debug/version` - Get container and moltbot version info
-
-Enable debug routes:
-```bash
-npx wrangler secret put DEBUG_ROUTES
-# Enter: true
-```
 
 ## Local Development
 
@@ -198,12 +178,7 @@ Example `.dev.vars`:
 ```bash
 ANTHROPIC_API_KEY=sk-ant-...
 MOLTBOT_GATEWAY_TOKEN=my-dev-token
-DEBUG_ROUTES=true
 ```
-
-### WebSocket Limitations
-
-Local development (`wrangler dev`) has [limited WebSocket support](https://developers.cloudflare.com/workers/runtime-apis/websockets/#websockets-in-the-devtools). The gateway UI may not work fully in dev mode. Deploy to test WebSocket functionality.
 
 ## Comparison with Original
 
@@ -214,7 +189,6 @@ This fork differs from the upstream moltworker in the following ways:
 | **Configuration** | API-driven | Environment variables |
 | **Admin UI** | No Web UI | React SPA at `/_admin/` |
 | **Channel Setup** | Runtime via API | Deploy-time via secrets |
-| **Device Pairing** | Bypassed (DEV_MODE) | Required, managed via UI |
 | **Environment Vars** | 3 required | 10+ optional |
 | **Use Case** | Programmatic control | Manual management |
 
@@ -229,7 +203,6 @@ This fork differs from the upstream moltworker in the following ways:
 ## Known Limitations
 
 - **No Persistence**: Configuration is stored in container memory. Container restarts lose config.
-- **No Device Management UI**: Device pairing is bypassed (DEV_MODE enabled by default).
 - **Manual API Calls**: No GUI for configuration management.
 
 To add persistence, consider integrating Cloudflare R2 or KV storage.

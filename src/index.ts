@@ -22,7 +22,7 @@ import { getSandbox, Sandbox, type SandboxOptions } from '@cloudflare/sandbox';
 import type { AppEnv, MoltbotEnv } from './types';
 import { MOLTBOT_PORT } from './config';
 import { ensureMoltbotGateway, findExistingMoltbotProcess } from './gateway';
-import { publicRoutes, api, debug } from './routes';
+import { publicRoutes, api } from './routes';
 import loadingPageHtml from './assets/loading.html';
 import configErrorHtml from './assets/config-error.html';
 
@@ -96,7 +96,6 @@ app.use('*', async (c, next) => {
   const url = new URL(c.req.url);
   console.log(`[REQ] ${c.req.method} ${url.pathname}${url.search}`);
   console.log(`[REQ] Has ANTHROPIC_API_KEY: ${!!c.env.ANTHROPIC_API_KEY}`);
-  console.log(`[REQ] DEBUG_ROUTES: ${c.env.DEBUG_ROUTES}`);
   await next();
 });
 
@@ -120,15 +119,8 @@ app.route('/', publicRoutes);
 // PROTECTED ROUTES: Require valid configuration
 // =============================================================================
 
-// Middleware: Validate required environment variables (skip for debug routes)
+// Middleware: Validate required environment variables
 app.use('*', async (c, next) => {
-  const url = new URL(c.req.url);
-  
-  // Skip validation for debug routes (they have their own enable check)
-  if (url.pathname.startsWith('/debug')) {
-    return next();
-  }
-  
   const missingVars = validateRequiredEnv(c.env);
   if (missingVars.length > 0) {
     console.error('[CONFIG] Missing required environment variables:', missingVars.join(', '));
@@ -154,15 +146,6 @@ app.use('*', async (c, next) => {
 
 // Mount API routes (Bearer token authentication required)
 app.route('/api', api);
-
-// Mount debug routes (only when DEBUG_ROUTES is enabled)
-app.use('/debug/*', async (c, next) => {
-  if (c.env.DEBUG_ROUTES !== 'true') {
-    return c.json({ error: 'Debug routes are disabled' }, 404);
-  }
-  return next();
-});
-app.route('/debug', debug);
 
 // =============================================================================
 // CATCH-ALL: Proxy to Moltbot gateway

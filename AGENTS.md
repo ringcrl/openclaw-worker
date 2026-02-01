@@ -5,10 +5,8 @@ Guidelines for AI agents working on this codebase.
 ## Project Overview
 
 This is a **simplified demo version** of a Cloudflare Worker that runs [OpenClaw](https://openclaw.ai/) in a Cloudflare Sandbox container. It provides:
-- Proxying to the OpenClaw gateway (web UI + WebSocket)
-- Admin UI at `/_admin/` for device management
-- API endpoints at `/api/*` for device pairing
-- Debug endpoints at `/debug/*` for troubleshooting
+- Proxying to the OpenClaw gateway (web UI + API)
+- API endpoints at `/api/*` for configuration management
 
 **Key Simplifications:**
 - No R2 persistent storage (data lost on container restart)
@@ -29,40 +27,18 @@ src/
 │   ├── process.ts    # Process lifecycle (find, start)
 │   ├── env.ts        # Environment variable building
 │   └── utils.ts      # Shared utilities (waitForProcess)
-├── routes/           # API route handlers
-│   ├── api.ts        # /api/* endpoints (devices, gateway)
-│   ├── admin-ui.ts   # /_admin/* static file serving
-│   ├── public.ts     # Public routes (no auth)
-│   └── debug.ts      # /debug/* endpoints
-└── client/           # React admin UI (Vite)
-    ├── App.tsx
-    ├── api.ts        # API client
-    └── pages/
+└── routes/           # API route handlers
+    ├── api.ts        # /api/* endpoints (configuration)
+    └── public.ts     # Public routes (health checks)
 ```
 
 ## Key Patterns
 
-### Environment Variables
-
-- `DEV_MODE` - Skips device pairing (maps to `CLAWDBOT_DEV_MODE` for container)
-- `DEBUG_ROUTES` - Enables `/debug/*` routes (disabled by default)
-- See `src/types.ts` for full `MoltbotEnv` interface
-
 ### CLI Commands
 
-When calling the OpenClaw CLI from the worker, always include `--url ws://localhost:18789`.
 Note: The CLI is still named `clawdbot` until upstream renames it:
 ```typescript
-sandbox.startProcess('clawdbot devices list --json --url ws://localhost:18789')
-```
-
-CLI commands take 10-15 seconds due to WebSocket connection overhead. Use `waitForProcess()` helper in `src/routes/api.ts`.
-
-### Success Detection
-
-The CLI outputs "Approved" (capital A). Use case-insensitive checks:
-```typescript
-stdout.toLowerCase().includes('approved')
+sandbox.startProcess('clawdbot gateway --port 18789 --verbose')
 ```
 
 ## Commands
@@ -106,13 +82,13 @@ Development documentation goes in AGENTS.md, not README.md.
 ## Architecture
 
 ```
-Browser
+Browser/API Client
    │
    ▼
 ┌──────────────────────────┐
 │  Cloudflare Worker       │
 │  - Starts Sandbox        │
-│  - Proxies HTTP/WS       │
+│  - Proxies HTTP          │
 │  - Passes env vars       │
 └──────────┬───────────────┘
            │
@@ -121,7 +97,7 @@ Browser
 │  Cloudflare Sandbox      │
 │  - OpenClaw Gateway      │
 │  - Control UI:18789      │
-│  - WebSocket RPC         │
+│  - API RPC               │
 │  - Agent runtime         │
 └──────────────────────────┘
 ```
@@ -151,13 +127,8 @@ For local development, create `.dev.vars`:
 
 ```bash
 ANTHROPIC_API_KEY=sk-ant-...
-DEV_MODE=true           # Skips device pairing
-DEBUG_ROUTES=true       # Enables /debug/* routes
+MOLTBOT_GATEWAY_TOKEN=my-dev-token
 ```
-
-### WebSocket Limitations
-
-Local development with `wrangler dev` has issues proxying WebSocket connections through the sandbox. HTTP requests work but WebSocket connections may fail. Deploy to Cloudflare for full functionality.
 
 ## Docker Image Caching
 
@@ -183,7 +154,6 @@ These are the env vars passed TO the container (internal names):
 |----------|-------------|-------|
 | `ANTHROPIC_API_KEY` | (env var) | OpenClaw reads directly from env |
 | `CLAWDBOT_GATEWAY_TOKEN` | `--token` flag | Mapped from `MOLTBOT_GATEWAY_TOKEN` |
-| `CLAWDBOT_DEV_MODE` | `controlUi.allowInsecureAuth` | Mapped from `DEV_MODE` |
 | `TELEGRAM_BOT_TOKEN` | `channels.telegram.botToken` | |
 | `DISCORD_BOT_TOKEN` | `channels.discord.token` | |
 | `SLACK_BOT_TOKEN` | `channels.slack.botToken` | |
@@ -206,15 +176,14 @@ See [OpenClaw docs](https://docs.openclaw.ai/gateway/configuration) for full sch
 
 1. Add route handler in `src/routes/api.ts`
 2. Add types if needed in `src/types.ts`
-3. Update client API in `src/client/api.ts` if frontend needs it
-4. Add tests
+3. Add tests
 
 ### Adding a New Environment Variable
 
 1. Add to `MoltbotEnv` interface in `src/types.ts`
 2. If passed to container, add to `buildEnvVars()` in `src/gateway/env.ts`
 3. Update `.dev.vars.example`
-4. Document in README.md secrets table
+4. Document in README.md environment variables table
 
 ### Debugging
 
@@ -225,8 +194,6 @@ npx wrangler tail
 # Check secrets
 npx wrangler secret list
 ```
-
-Enable debug routes with `DEBUG_ROUTES=true` and check `/debug/processes`.
 
 ## Removed Features (Compared to Full Version)
 

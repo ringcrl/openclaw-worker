@@ -22,8 +22,5 @@ export function buildEnvVars(env: MoltbotEnv): Record<string, string> {
   // Required: Gateway authentication token (map to container's expected name)
   envVars.CLAWDBOT_GATEWAY_TOKEN = env.MOLTBOT_GATEWAY_TOKEN;
 
-  // Force DEV_MODE to skip device pairing (API-only access model)
-  envVars.CLAWDBOT_DEV_MODE = 'true';
-
   return envVars;
 }

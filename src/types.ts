@@ -14,7 +14,6 @@ export interface MoltbotEnv {
   ANTHROPIC_BASE_URL?: string;
   // Optional: Advanced configuration
   SANDBOX_SLEEP_AFTER?: string; // How long before sandbox sleeps: 'never' (default), or duration like '10m', '1h'
-  DEBUG_ROUTES?: string; // Set to 'true' to enable /debug/* routes
 }
 
 /**

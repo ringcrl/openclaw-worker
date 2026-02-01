@@ -11,22 +11,10 @@ import type { MoltbotEnv } from './types';
 export function createMockEnv(overrides: Partial<MoltbotEnv> = {}): MoltbotEnv {
   return {
     Sandbox: {} as any,
-    ASSETS: {} as any,
-    MOLTBOT_BUCKET: {} as any,
+    ANTHROPIC_API_KEY: 'test-key',
+    MOLTBOT_GATEWAY_TOKEN: 'test-token',
     ...overrides,
   };
-}
-
-/**
- * Create a mock env with R2 credentials configured
- */
-export function createMockEnvWithR2(overrides: Partial<MoltbotEnv> = {}): MoltbotEnv {
-  return createMockEnv({
-    R2_ACCESS_KEY_ID: 'test-key-id',
-    R2_SECRET_ACCESS_KEY: 'test-secret-key',
-    CF_ACCOUNT_ID: 'test-account-id',
-    ...overrides,
-  });
 }
 
 /**
