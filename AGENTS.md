@@ -4,11 +4,17 @@ Guidelines for AI agents working on this codebase.
 
 ## Project Overview
 
-This is a Cloudflare Worker that runs [Moltbot](https://molt.bot/) in a Cloudflare Sandbox container. It provides:
-- Proxying to the Moltbot gateway (web UI + WebSocket)
+This is a **simplified demo version** of a Cloudflare Worker that runs [OpenClaw](https://openclaw.ai/) in a Cloudflare Sandbox container. It provides:
+- Proxying to the OpenClaw gateway (web UI + WebSocket)
 - Admin UI at `/_admin/` for device management
 - API endpoints at `/api/*` for device pairing
 - Debug endpoints at `/debug/*` for troubleshooting
+
+**Key Simplifications:**
+- No R2 persistent storage (data lost on container restart)
+- No Cloudflare Access authentication
+- No Browser Rendering (CDP) features
+- No cron-triggered backups
 
 **Note:** The CLI tool is still named `clawdbot` (upstream hasn't renamed yet), so CLI commands and internal config paths still use that name.
 
@@ -19,19 +25,14 @@ src/
 ├── index.ts          # Main Hono app, route mounting
 ├── types.ts          # TypeScript type definitions
 ├── config.ts         # Constants (ports, timeouts, paths)
-├── auth/             # Cloudflare Access authentication
-│   ├── jwt.ts        # JWT verification
-│   ├── jwks.ts       # JWKS fetching and caching
-│   └── middleware.ts # Hono middleware for auth
-├── gateway/          # Moltbot gateway management
+├── gateway/          # OpenClaw gateway management
 │   ├── process.ts    # Process lifecycle (find, start)
 │   ├── env.ts        # Environment variable building
-│   ├── r2.ts         # R2 bucket mounting
-│   ├── sync.ts       # R2 backup sync logic
 │   └── utils.ts      # Shared utilities (waitForProcess)
 ├── routes/           # API route handlers
 │   ├── api.ts        # /api/* endpoints (devices, gateway)
-│   ├── admin.ts      # /_admin/* static file serving
+│   ├── admin-ui.ts   # /_admin/* static file serving
+│   ├── public.ts     # Public routes (no auth)
 │   └── debug.ts      # /debug/* endpoints
 └── client/           # React admin UI (Vite)
     ├── App.tsx
@@ -43,13 +44,13 @@ src/
 
 ### Environment Variables
 
-- `DEV_MODE` - Skips CF Access auth AND bypasses device pairing (maps to `CLAWDBOT_DEV_MODE` for container)
+- `DEV_MODE` - Skips device pairing (maps to `CLAWDBOT_DEV_MODE` for container)
 - `DEBUG_ROUTES` - Enables `/debug/*` routes (disabled by default)
 - See `src/types.ts` for full `MoltbotEnv` interface
 
 ### CLI Commands
 
-When calling the moltbot CLI from the worker, always include `--url ws://localhost:18789`.
+When calling the OpenClaw CLI from the worker, always include `--url ws://localhost:18789`.
 Note: The CLI is still named `clawdbot` until upstream renames it:
 ```typescript
 sandbox.startProcess('clawdbot devices list --json --url ws://localhost:18789')
@@ -81,12 +82,8 @@ npm run typecheck     # TypeScript check
 Tests use Vitest. Test files are colocated with source files (`*.test.ts`).
 
 Current test coverage:
-- `auth/jwt.test.ts` - JWT decoding and validation
-- `auth/jwks.test.ts` - JWKS fetching and caching
-- `auth/middleware.test.ts` - Auth middleware behavior
 - `gateway/env.test.ts` - Environment variable building
 - `gateway/process.test.ts` - Process finding logic
-- `gateway/r2.test.ts` - R2 mounting logic
 
 When adding new functionality, add corresponding tests.
 
@@ -112,23 +109,21 @@ Development documentation goes in AGENTS.md, not README.md.
 Browser
    │
    ▼
-┌─────────────────────────────────────┐
-│     Cloudflare Worker (index.ts)    │
-│  - Starts Moltbot in sandbox        │
-│  - Proxies HTTP/WebSocket requests  │
-│  - Passes secrets as env vars       │
-└──────────────┬──────────────────────┘
-               │
-               ▼
-┌─────────────────────────────────────┐
-│     Cloudflare Sandbox Container    │
-│  ┌───────────────────────────────┐  │
-│  │     Moltbot Gateway           │  │
-│  │  - Control UI on port 18789   │  │
-│  │  - WebSocket RPC protocol     │  │
-│  │  - Agent runtime              │  │
-│  └───────────────────────────────┘  │
-└─────────────────────────────────────┘
+┌──────────────────────────┐
+│  Cloudflare Worker       │
+│  - Starts Sandbox        │
+│  - Proxies HTTP/WS       │
+│  - Passes env vars       │
+└──────────┬───────────────┘
+           │
+           ▼
+┌──────────────────────────┐
+│  Cloudflare Sandbox      │
+│  - OpenClaw Gateway      │
+│  - Control UI:18789      │
+│  - WebSocket RPC         │
+│  - Agent runtime         │
+└──────────────────────────┘
 ```
 
 ### Key Files
@@ -136,7 +131,7 @@ Browser
 | File | Purpose |
 |------|---------|
 | `src/index.ts` | Worker that manages sandbox lifecycle and proxies requests |
-| `Dockerfile` | Container image based on `cloudflare/sandbox` with Node 22 + Moltbot |
+| `Dockerfile` | Container image based on `cloudflare/sandbox` with Node 22 + OpenClaw |
 | `start-moltbot.sh` | Startup script that configures moltbot from env vars and launches gateway |
 | `moltbot.json.template` | Default Moltbot configuration template |
 | `wrangler.jsonc` | Cloudflare Worker + Container configuration |
@@ -156,7 +151,7 @@ For local development, create `.dev.vars`:
 
 ```bash
 ANTHROPIC_API_KEY=sk-ant-...
-DEV_MODE=true           # Skips CF Access auth + device pairing
+DEV_MODE=true           # Skips device pairing
 DEBUG_ROUTES=true       # Enables /debug/* routes
 ```
 
@@ -174,7 +169,7 @@ The Dockerfile includes a cache bust comment. When changing `moltbot.json.templa
 
 ## Gateway Configuration
 
-Moltbot configuration is built at container startup:
+OpenClaw configuration is built at container startup:
 
 1. `moltbot.json.template` is copied to `~/.clawdbot/clawdbot.json` (internal path unchanged)
 2. `start-moltbot.sh` updates the config with values from environment variables
@@ -186,7 +181,7 @@ These are the env vars passed TO the container (internal names):
 
 | Variable | Config Path | Notes |
 |----------|-------------|-------|
-| `ANTHROPIC_API_KEY` | (env var) | Moltbot reads directly from env |
+| `ANTHROPIC_API_KEY` | (env var) | OpenClaw reads directly from env |
 | `CLAWDBOT_GATEWAY_TOKEN` | `--token` flag | Mapped from `MOLTBOT_GATEWAY_TOKEN` |
 | `CLAWDBOT_DEV_MODE` | `controlUi.allowInsecureAuth` | Mapped from `DEV_MODE` |
 | `TELEGRAM_BOT_TOKEN` | `channels.telegram.botToken` | |
@@ -194,16 +189,16 @@ These are the env vars passed TO the container (internal names):
 | `SLACK_BOT_TOKEN` | `channels.slack.botToken` | |
 | `SLACK_APP_TOKEN` | `channels.slack.appToken` | |
 
-## Moltbot Config Schema
+## OpenClaw Config Schema
 
-Moltbot has strict config validation. Common gotchas:
+OpenClaw has strict config validation. Common gotchas:
 
 - `agents.defaults.model` must be `{ "primary": "model/name" }` not a string
 - `gateway.mode` must be `"local"` for headless operation
 - No `webchat` channel - the Control UI is served automatically
 - `gateway.bind` is not a config option - use `--bind` CLI flag
 
-See [Moltbot docs](https://docs.molt.bot/gateway/configuration) for full schema.
+See [OpenClaw docs](https://docs.openclaw.ai/gateway/configuration) for full schema.
 
 ## Common Tasks
 
@@ -233,14 +228,25 @@ npx wrangler secret list
 
 Enable debug routes with `DEBUG_ROUTES=true` and check `/debug/processes`.
 
-## R2 Storage Notes
+## Removed Features (Compared to Full Version)
 
-R2 is mounted via s3fs at `/data/moltbot`. Important gotchas:
+This simplified demo has removed:
 
-- **rsync compatibility**: Use `rsync -r --no-times` instead of `rsync -a`. s3fs doesn't support setting timestamps, which causes rsync to fail with "Input/output error".
+1. **R2 Storage** - No persistent data across container restarts
+   - Removed: `src/gateway/r2.ts`, `src/gateway/sync.ts`
+   - Removed: R2 bucket binding in `wrangler.jsonc`
+   - Removed: Cron triggers for automatic backups
 
-- **Mount checking**: Don't rely on `sandbox.mountBucket()` error messages to detect "already mounted" state. Instead, check `mount | grep s3fs` to verify the mount status.
+2. **Cloudflare Access** - No JWT authentication
+   - Removed: `src/auth/*` directory
+   - Removed: Access middleware and JWT validation
 
-- **Never delete R2 data**: The mount directory `/data/moltbot` IS the R2 bucket. Running `rm -rf /data/moltbot/*` will DELETE your backup data. Always check mount status before any destructive operations.
+3. **Browser Rendering (CDP)** - No browser automation
+   - Removed: `src/routes/cdp.ts`
+   - Removed: Browser binding in `wrangler.jsonc`
 
-- **Process status**: The sandbox API's `proc.status` may not update immediately after a process completes. Instead of checking `proc.status === 'completed'`, verify success by checking for expected output (e.g., timestamp file exists after sync).
+4. **Cron Triggers** - No automatic scheduled tasks
+   - Removed: `triggers.crons` in `wrangler.jsonc`
+   - Removed: `scheduled` handler in `src/index.ts`
+
+To re-add these features, refer to the full version of the project.

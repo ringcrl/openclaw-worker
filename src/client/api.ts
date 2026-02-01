@@ -1,5 +1,4 @@
 // API client for admin endpoints
-// Authentication is handled by Cloudflare Access (JWT in cookies)
 
 const API_BASE = '/api/admin';
 
@@ -55,13 +54,6 @@ export interface ApproveAllResponse {
   error?: string;
 }
 
-export class AuthError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'AuthError';
-  }
-}
-
 async function apiRequest<T>(
   path: string,
   options: globalThis.RequestInit = {}
@@ -74,10 +66,6 @@ async function apiRequest<T>(
       ...options.headers,
     },
   } as globalThis.RequestInit);
-
-  if (response.status === 401) {
-    throw new AuthError('Unauthorized - please log in via Cloudflare Access');
-  }
 
   const data = await response.json() as T & { error?: string };
 
@@ -112,31 +100,6 @@ export interface RestartGatewayResponse {
 
 export async function restartGateway(): Promise<RestartGatewayResponse> {
   return apiRequest<RestartGatewayResponse>('/gateway/restart', {
-    method: 'POST',
-  });
-}
-
-export interface StorageStatusResponse {
-  configured: boolean;
-  missing?: string[];
-  lastSync: string | null;
-  message: string;
-}
-
-export async function getStorageStatus(): Promise<StorageStatusResponse> {
-  return apiRequest<StorageStatusResponse>('/storage');
-}
-
-export interface SyncResponse {
-  success: boolean;
-  message?: string;
-  lastSync?: string;
-  error?: string;
-  details?: string;
-}
-
-export async function triggerSync(): Promise<SyncResponse> {
-  return apiRequest<SyncResponse>('/storage/sync', {
     method: 'POST',
   });
 }

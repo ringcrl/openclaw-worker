@@ -12,9 +12,9 @@
  *
  * Required secrets (set via `wrangler secret put`):
  * - ANTHROPIC_API_KEY: Your Anthropic API key
+ * - MOLTBOT_GATEWAY_TOKEN: Token to protect gateway access
  *
  * Optional secrets:
- * - MOLTBOT_GATEWAY_TOKEN: Token to protect gateway access
  * - TELEGRAM_BOT_TOKEN: Telegram bot token
  * - DISCORD_BOT_TOKEN: Discord bot token
  * - SLACK_BOT_TOKEN + SLACK_APP_TOKEN: Slack tokens
@@ -25,9 +25,8 @@ import { getSandbox, Sandbox, type SandboxOptions } from '@cloudflare/sandbox';
 
 import type { AppEnv, MoltbotEnv } from './types';
 import { MOLTBOT_PORT } from './config';
-import { createAccessMiddleware } from './auth';
-import { ensureMoltbotGateway, findExistingMoltbotProcess, syncToR2 } from './gateway';
-import { publicRoutes, api, adminUi, debug, cdp } from './routes';
+import { ensureMoltbotGateway, findExistingMoltbotProcess } from './gateway';
+import { publicRoutes, api, adminUi, debug } from './routes';
 import loadingPageHtml from './assets/loading.html';
 import configErrorHtml from './assets/config-error.html';
 
@@ -122,18 +121,15 @@ app.use('*', async (c, next) => {
 });
 
 // =============================================================================
-// PUBLIC ROUTES: No Cloudflare Access authentication required
+// PUBLIC ROUTES: No authentication required
 // =============================================================================
 
-// Mount public routes first (before auth middleware)
+// Mount public routes first
 // Includes: /sandbox-health, /logo.png, /logo-small.png, /api/status, /_admin/assets/*
 app.route('/', publicRoutes);
 
-// Mount CDP routes (uses shared secret auth via query param, not CF Access)
-app.route('/cdp', cdp);
-
 // =============================================================================
-// PROTECTED ROUTES: Cloudflare Access authentication required
+// PROTECTED ROUTES: Require valid configuration
 // =============================================================================
 
 // Middleware: Validate required environment variables (skip in dev mode and for debug routes)
@@ -173,25 +169,13 @@ app.use('*', async (c, next) => {
   return next();
 });
 
-// Middleware: Cloudflare Access authentication for protected routes
-app.use('*', async (c, next) => {
-  // Determine response type based on Accept header
-  const acceptsHtml = c.req.header('Accept')?.includes('text/html');
-  const middleware = createAccessMiddleware({ 
-    type: acceptsHtml ? 'html' : 'json',
-    redirectOnMissing: acceptsHtml 
-  });
-  
-  return middleware(c, next);
-});
-
-// Mount API routes (protected by Cloudflare Access)
+// Mount API routes
 app.route('/api', api);
 
-// Mount Admin UI routes (protected by Cloudflare Access)
+// Mount Admin UI routes
 app.route('/_admin', adminUi);
 
-// Mount debug routes (protected by Cloudflare Access, only when DEBUG_ROUTES is enabled)
+// Mount debug routes (only when DEBUG_ROUTES is enabled)
 app.use('/debug/*', async (c, next) => {
   if (c.env.DEBUG_ROUTES !== 'true') {
     return c.json({ error: 'Debug routes are disabled' }, 404);
@@ -373,29 +357,6 @@ app.all('*', async (c) => {
   });
 });
 
-/**
- * Scheduled handler for cron triggers.
- * Syncs moltbot config/state from container to R2 for persistence.
- */
-async function scheduled(
-  _event: ScheduledEvent,
-  env: MoltbotEnv,
-  _ctx: ExecutionContext
-): Promise<void> {
-  const options = buildSandboxOptions(env);
-  const sandbox = getSandbox(env.Sandbox, 'moltbot', options);
-
-  console.log('[cron] Starting backup sync to R2...');
-  const result = await syncToR2(sandbox, env);
-  
-  if (result.success) {
-    console.log('[cron] Backup sync completed successfully at', result.lastSync);
-  } else {
-    console.error('[cron] Backup sync failed:', result.error, result.details || '');
-  }
-}
-
 export default {
   fetch: app.fetch,
-  scheduled,
 };
