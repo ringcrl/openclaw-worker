@@ -327,31 +327,7 @@ curl -X POST \
 }
 ```
 
-## 注意事项
-
-- **网关重启**：配置更改需要重启网关(配置端点会自动处理)
-- **Token 安全**：永远不要将 token 提交到 git。始终使用 `wrangler secret put`
-- **容器持久化**：配置存储在容器内存中。如果容器重启,需要通过 API 重新配置
-
-## 高级：配置持久化
-
-要在容器重启后保持配置，可以考虑：
-
-1. **R2 存储**：将配置存储在 Cloudflare R2 中，启动时加载
-2. **KV 存储**：使用 Cloudflare KV 进行轻量级配置存储
-3. **Durable Objects**：使用 DO state 进行事务性配置管理
-
-R2 集成示例：
-
-```typescript
-// 启动时从 R2 加载配置
-const configObject = await env.R2_BUCKET.get("moltbot-config.json");
-const config = configObject ? await configObject.json() : {};
-
-// 应用配置到网关...
-```
-
-## 使用技巧
+## 脚本配置
 
 ### 批量配置脚本
 
