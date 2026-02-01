@@ -1,6 +1,6 @@
-<mxfile host="65bd71144e">
+<mxfile host="65bd71144e" scale="3" border="0">
     <diagram name="OpenClaw Worker 架构 (API 驱动)" id="openclaw-worker-arch">
-        <mxGraphModel dx="965" dy="328" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="800" math="0" shadow="0">
+        <mxGraphModel dx="820" dy="279" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="800" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
@@ -37,7 +37,7 @@
                 <mxCell id="arrow2" value="HTTP 代理&lt;br&gt;端口 18789&lt;br&gt;Headers 传递环境变量" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;fontSize=11;" parent="1" source="worker-container" target="sandbox-container" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="sandbox-container" value="亲王管容器 (Docker)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=15;fontStyle=1;align=center;verticalAlign=top;container=1;" parent="1" vertex="1">
+                <mxCell id="sandbox-container" value="沙箱 (Docker)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=15;fontStyle=1;align=center;verticalAlign=top;container=1;" parent="1" vertex="1">
                     <mxGeometry x="180" y="480" width="900" height="150" as="geometry"/>
                 </mxCell>
                 <mxCell id="sandbox-startup" value="Dockerfile&#xa;Node.js 22 + OpenClaw CLI&#xa;端口 18789" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=center;verticalAlign=middle;" parent="sandbox-container" vertex="1">
