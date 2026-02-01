@@ -74,7 +74,7 @@ https://openclaw-production.up.railway.app
 export interface MoltbotEnv {
   ANTHROPIC_API_KEY: string;
   MOLTBOT_GATEWAY_TOKEN: string;
-  ANTHROPIC_BASE_URL?: string;
+  ANTHROPIC_BASE_URL: string;
   SANDBOX_SLEEP_AFTER?: string;
   
   // 新增
