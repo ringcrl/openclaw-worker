@@ -7,14 +7,6 @@
   "observability": {
     "enabled": true,
   },
-  // Static assets for admin UI (built by vite)
-  "assets": {
-    "directory": "./dist/client",
-    "not_found_handling": "single-page-application",
-    "html_handling": "auto-trailing-slash",
-    "binding": "ASSETS",
-    "run_worker_first": true,
-  },
   // Allow importing HTML files as text modules and PNG files as binary
   "rules": [
     {
@@ -28,10 +20,6 @@
       "fallthrough": false,
     },
   ],
-  // Build command for vite
-  "build": {
-    "command": "npm run build",
-  },
   // Container configuration for the OpenClaw sandbox
   "containers": [
     {
@@ -55,14 +43,14 @@
       "tag": "v1",
     },
   ],
-  // Secrets to configure via `wrangler secret put`:
-  // - ANTHROPIC_API_KEY: Your Anthropic API key (or use AI Gateway)
-  // - AI_GATEWAY_API_KEY: (optional) API key for AI Gateway provider
-  // - AI_GATEWAY_BASE_URL: (optional) AI Gateway endpoint URL
-  // - MOLTBOT_GATEWAY_TOKEN: Token to protect gateway access
-  // - DEV_MODE: (optional) Set to 'true' for local dev (skips device pairing)
-  // - TELEGRAM_BOT_TOKEN: (optional) Telegram bot token
-  // - DISCORD_BOT_TOKEN: (optional) Discord bot token
-  // - SLACK_BOT_TOKEN: (optional) Slack bot token
-  // - SLACK_APP_TOKEN: (optional) Slack app token
+  // Required secrets (configure via `wrangler secret put`):
+  // - MOLTBOT_GATEWAY_TOKEN: Bearer token for API authentication
+  // - ANTHROPIC_API_KEY: Anthropic API key
+  //
+  // Optional secrets:
+  // - ANTHROPIC_BASE_URL: Custom Anthropic endpoint (for AI Gateway)
+  // - SANDBOX_SLEEP_AFTER: Container sleep timeout ('never' or duration like '10m')
+  // - DEBUG_ROUTES: Set to 'true' to enable /debug/* routes
+  //
+  // All other configuration (Telegram, Discord, Slack) is managed via API
 }

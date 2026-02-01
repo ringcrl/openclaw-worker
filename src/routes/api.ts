@@ -1,101 +1,58 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../types';
-import { ensureMoltbotGateway, findExistingMoltbotProcess, waitForProcess } from '../gateway';
-
-// CLI commands can take 10-15 seconds to complete due to WebSocket connection overhead
-const CLI_TIMEOUT_MS = 20000;
+import { ensureMoltbotGateway, findExistingMoltbotProcess } from '../gateway';
+import { configApi } from './config-api';
 
 /**
- * API routes
- * - /api/admin/* - Admin API routes
+ * API routes with Bearer token authentication
  * 
- * Note: /api/status is now handled by publicRoutes (no auth required)
+ * All API endpoints require:
+ *   Authorization: Bearer <MOLTBOT_GATEWAY_TOKEN>
  */
 const api = new Hono<AppEnv>();
 
-/**
- * Admin API routes
- */
-const adminApi = new Hono<AppEnv>();
-
-// GET /api/admin/devices - List pending and paired devices
-adminApi.get('/devices', async (c) => {
-  const sandbox = c.get('sandbox');
-
-  try {
-    // Ensure moltbot is running first
-    await ensureMoltbotGateway(sandbox, c.env);
-
-    // Run moltbot CLI to list devices (CLI is still named clawdbot until upstream renames)
-    // Must specify --url to connect to the gateway running in the same container
-    const proc = await sandbox.startProcess('clawdbot devices list --json --url ws://localhost:18789');
-    await waitForProcess(proc, CLI_TIMEOUT_MS);
-
-    const logs = await proc.getLogs();
-    const stdout = logs.stdout || '';
-    const stderr = logs.stderr || '';
-
-    // Try to parse JSON output
-    try {
-      // Find JSON in output (may have other log lines)
-      const jsonMatch = stdout.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const data = JSON.parse(jsonMatch[0]);
-        return c.json(data);
-      }
-
-      // If no JSON found, return raw output for debugging
-      return c.json({
-        pending: [],
-        paired: [],
-        raw: stdout,
-        stderr,
-      });
-    } catch {
-      return c.json({
-        pending: [],
-        paired: [],
-        raw: stdout,
-        stderr,
-        parseError: 'Failed to parse CLI output',
-      });
-    }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return c.json({ error: errorMessage }, 500);
+// Middleware: Verify Bearer token for ALL API routes
+api.use('*', async (c, next) => {
+  const authHeader = c.req.header('Authorization');
+  
+  if (!authHeader?.startsWith('Bearer ')) {
+    return c.json({
+      error: 'Unauthorized',
+      message: 'Missing or invalid Authorization header',
+      hint: 'Use: Authorization: Bearer <MOLTBOT_GATEWAY_TOKEN>',
+    }, 401);
   }
+
+  const token = authHeader.slice(7); // Remove 'Bearer ' prefix
+  
+  if (token !== c.env.MOLTBOT_GATEWAY_TOKEN) {
+    return c.json({
+      error: 'Unauthorized',
+      message: 'Invalid token',
+    }, 401);
+  }
+
+  return next();
 });
 
-// POST /api/admin/devices/:requestId/approve - Approve a pending device
-adminApi.post('/devices/:requestId/approve', async (c) => {
+// GET /api/status - Gateway status
+api.get('/status', async (c) => {
   const sandbox = c.get('sandbox');
-  const requestId = c.req.param('requestId');
-
-  if (!requestId) {
-    return c.json({ error: 'requestId is required' }, 400);
-  }
 
   try {
-    // Ensure moltbot is running first
-    await ensureMoltbotGateway(sandbox, c.env);
-
-    // Run moltbot CLI to approve the device (CLI is still named clawdbot)
-    const proc = await sandbox.startProcess(`clawdbot devices approve ${requestId} --url ws://localhost:18789`);
-    await waitForProcess(proc, CLI_TIMEOUT_MS);
-
-    const logs = await proc.getLogs();
-    const stdout = logs.stdout || '';
-    const stderr = logs.stderr || '';
-
-    // Check for success indicators (case-insensitive, CLI outputs "Approved ...")
-    const success = stdout.toLowerCase().includes('approved') || proc.exitCode === 0;
+    const existingProcess = await findExistingMoltbotProcess(sandbox);
+    
+    if (!existingProcess) {
+      return c.json({
+        status: 'stopped',
+        ready: false,
+      });
+    }
 
     return c.json({
-      success,
-      requestId,
-      message: success ? 'Device approved' : 'Approval may have failed',
-      stdout,
-      stderr,
+      status: existingProcess.status,
+      ready: existingProcess.status === 'running',
+      processId: existingProcess.id,
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -103,76 +60,11 @@ adminApi.post('/devices/:requestId/approve', async (c) => {
   }
 });
 
-// POST /api/admin/devices/approve-all - Approve all pending devices
-adminApi.post('/devices/approve-all', async (c) => {
+// POST /api/gateway/restart - Restart the gateway
+api.post('/gateway/restart', async (c) => {
   const sandbox = c.get('sandbox');
 
   try {
-    // Ensure moltbot is running first
-    await ensureMoltbotGateway(sandbox, c.env);
-
-    // First, get the list of pending devices (CLI is still named clawdbot)
-    const listProc = await sandbox.startProcess('clawdbot devices list --json --url ws://localhost:18789');
-    await waitForProcess(listProc, CLI_TIMEOUT_MS);
-
-    const listLogs = await listProc.getLogs();
-    const stdout = listLogs.stdout || '';
-
-    // Parse pending devices
-    let pending: Array<{ requestId: string }> = [];
-    try {
-      const jsonMatch = stdout.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const data = JSON.parse(jsonMatch[0]);
-        pending = data.pending || [];
-      }
-    } catch {
-      return c.json({ error: 'Failed to parse device list', raw: stdout }, 500);
-    }
-
-    if (pending.length === 0) {
-      return c.json({ approved: [], message: 'No pending devices to approve' });
-    }
-
-    // Approve each pending device
-    const results: Array<{ requestId: string; success: boolean; error?: string }> = [];
-
-    for (const device of pending) {
-      try {
-        const approveProc = await sandbox.startProcess(`clawdbot devices approve ${device.requestId} --url ws://localhost:18789`);
-        await waitForProcess(approveProc, CLI_TIMEOUT_MS);
-
-        const approveLogs = await approveProc.getLogs();
-        const success = approveLogs.stdout?.toLowerCase().includes('approved') || approveProc.exitCode === 0;
-
-        results.push({ requestId: device.requestId, success });
-      } catch (err) {
-        results.push({
-          requestId: device.requestId,
-          success: false,
-          error: err instanceof Error ? err.message : 'Unknown error',
-        });
-      }
-    }
-
-    const approvedCount = results.filter(r => r.success).length;
-    return c.json({
-      approved: results.filter(r => r.success).map(r => r.requestId),
-      failed: results.filter(r => !r.success),
-      message: `Approved ${approvedCount} of ${pending.length} device(s)`,
-    });
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return c.json({ error: errorMessage }, 500);
-  }
-});
-
-// POST /api/admin/gateway/restart - Kill the current gateway and start a new one
-adminApi.post('/gateway/restart', async (c) => {
-  const sandbox = c.get('sandbox');
-
-  try {
-    // Find and kill the existing gateway process
     const existingProcess = await findExistingMoltbotProcess(sandbox);
     
     if (existingProcess) {
@@ -182,11 +74,9 @@ adminApi.post('/gateway/restart', async (c) => {
       } catch (killErr) {
         console.error('Error killing process:', killErr);
       }
-      // Wait a moment for the process to die
       await new Promise(r => setTimeout(r, 2000));
     }
 
-    // Start a new gateway in the background
     const bootPromise = ensureMoltbotGateway(sandbox, c.env).catch((err) => {
       console.error('Gateway restart failed:', err);
     });
@@ -205,7 +95,7 @@ adminApi.post('/gateway/restart', async (c) => {
   }
 });
 
-// Mount admin API routes under /admin
-api.route('/admin', adminApi);
+// Mount dynamic configuration API
+api.route('/config', configApi);
 
 export { api };

@@ -1,37 +1,38 @@
-# OpenClaw on Cloudflare Workers (Simplified Demo)
+# OpenClaw on Cloudflare Workers (API-Driven)
 
-Run [OpenClaw](https://github.com/openclaw/openclaw) personal AI assistant in a [Cloudflare Sandbox](https://developers.cloudflare.com/sandbox/).
+Run [OpenClaw](https://github.com/openclaw/openclaw) personal AI assistant in a [Cloudflare Sandbox](https://developers.cloudflare.com/sandbox/) with **pure API-driven configuration**.
 
 ![moltworker architecture](./assets/logo.png)
 
-> **Note:** This is a simplified demo version with minimal dependencies. Data is not persisted across container restarts.
+> **Note:** This is an API-first architecture. All configuration (Telegram, Discord, Slack) is managed via API calls, not environment variables. Data is not persisted across container restarts.
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/cloudflare/moltworker)
 
 ## Requirements
 
 - [Workers Paid plan](https://www.cloudflare.com/plans/developer-platform/) ($5 USD/month) — required for Cloudflare Sandbox containers
-- [Anthropic API key](https://console.anthropic.com/) — for Claude access, or you can use AI Gateway's [Unified Billing](https://developers.cloudflare.com/ai-gateway/features/unified-billing/)
+- [Anthropic API key](https://console.anthropic.com/) — for Claude access
 
 ## What is OpenClaw?
 
 [OpenClaw](https://github.com/openclaw/openclaw) is a personal AI assistant with a gateway architecture that connects to multiple chat platforms. Key features:
 
 - **Control UI** - Web-based chat interface at the gateway
-- **Multi-channel support** - Telegram, Discord, Slack
-- **Device pairing** - Secure DM authentication requiring explicit approval
+- **Multi-channel support** - Telegram, Discord, Slack (configured via API)
 - **Agent runtime** - Extensible AI capabilities with workspace and skills
+- **API-first** - All configuration managed dynamically
 
 This project packages OpenClaw to run in a [Cloudflare Sandbox](https://developers.cloudflare.com/sandbox/) container, providing a fully managed, always-on deployment without needing to self-host.
 
 ## Architecture
 
 ```
-Browser
+Browser/API Client
    │
    ▼
 ┌──────────────────────────┐
 │  Cloudflare Worker       │
+│  - API Authentication    │
 │  - Starts Sandbox        │
 │  - Proxies HTTP/WS       │
 └──────────┬───────────────┘
@@ -42,72 +43,120 @@ Browser
 │  - OpenClaw Gateway      │
 │  - Control UI            │
 │  - WebSocket RPC         │
+│  - Dynamic Config        │
 └──────────────────────────┘
 ```
 
 ## Quick Start
 
+### 1. Install and Configure
+
 ```bash
 # Install dependencies
 npm install
 
-# Set your API key
+# Set required environment variables (only 3!)
+npx wrangler secret put MOLTBOT_GATEWAY_TOKEN
+# Enter: your-secret-api-token
+
 npx wrangler secret put ANTHROPIC_API_KEY
+# Enter: sk-ant-...
 
-# Or use AI Gateway instead (see "Optional: Cloudflare AI Gateway" below)
-# npx wrangler secret put AI_GATEWAY_API_KEY
-# npx wrangler secret put AI_GATEWAY_BASE_URL
-
-# Generate and set a gateway token (required for remote access)
-export MOLTBOT_GATEWAY_TOKEN=$(openssl rand -hex 32)
-echo "Your gateway token: $MOLTBOT_GATEWAY_TOKEN"
-echo "$MOLTBOT_GATEWAY_TOKEN" | npx wrangler secret put MOLTBOT_GATEWAY_TOKEN
+# Optional: Custom Anthropic endpoint
+# npx wrangler secret put ANTHROPIC_BASE_URL
+# Enter: https://gateway.ai.cloudflare.com/v1/{account}/{gateway}/anthropic
 
 # Deploy
 npm run deploy
 ```
 
-After deploying, open the Control UI with your token:
+### 2. Configure Channels via API
 
-```
-https://your-worker.workers.dev/?token=YOUR_GATEWAY_TOKEN
-```
+All channel bindings are managed via API. See [API Reference](./docs/API.md) for full documentation.
 
-Replace `your-worker` with your actual worker subdomain and `YOUR_GATEWAY_TOKEN` with the token you generated above.
-
-**Note:** The first request may take 1-2 minutes while the container starts.
-
-> **Important:** For device pairing, visit the admin UI at `/_admin/` to approve new devices.
-
-## Admin UI
-
-Access the admin UI at `/_admin/` to:
-- **Gateway Controls** - Restart the gateway process
-- **Device Pairing** - View pending requests, approve devices individually or all at once, view paired devices
-
-## Authentication
-
-By default, OpenClaw uses **device pairing** for authentication. When a new device (browser, CLI, etc.) connects, it must be approved via the admin UI at `/_admin/`.
-
-### Device Pairing
-
-1. A device connects to the gateway
-2. The connection is held pending until approved
-3. An admin approves the device via `/_admin/`
-4. The device is now paired and can connect freely
-
-### Gateway Token (Required)
-
-A gateway token is required to access the Control UI when hosted remotely. Pass it as a query parameter:
-
-```
-https://your-worker.workers.dev/?token=YOUR_TOKEN
-wss://your-worker.workers.dev/ws?token=YOUR_TOKEN
+**Configure Telegram:**
+```bash
+curl -X POST \
+  -H "Authorization: Bearer <MOLTBOT_GATEWAY_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"botToken": "123456:ABC-DEF..."}' \
+  https://your-worker.workers.dev/api/config/telegram
 ```
 
-**Note:** Even with a valid token, new devices still require approval via the admin UI.
+**Configure Discord:**
+```bash
+curl -X POST \
+  -H "Authorization: Bearer <MOLTBOT_GATEWAY_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"botToken": "your-discord-token"}' \
+  https://your-worker.workers.dev/api/config/discord
+```
 
-For local development, set `DEV_MODE=true` in `.dev.vars` to bypass device pairing entirely.
+**Configure Slack:**
+```bash
+curl -X POST \
+  -H "Authorization: Bearer <MOLTBOT_GATEWAY_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"botToken": "xoxb-...", "appToken": "xapp-..."}' \
+  https://your-worker.workers.dev/api/config/slack
+```
+
+### 3. Access the Gateway
+
+Visit your worker URL to access the OpenClaw Control UI:
+
+```
+https://your-worker.workers.dev/?token=<MOLTBOT_GATEWAY_TOKEN>
+```
+
+## Environment Variables
+
+Only **3 environment variables** are required:
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `MOLTBOT_GATEWAY_TOKEN` | Yes | Bearer token for API authentication |
+| `ANTHROPIC_API_KEY` | Yes | Anthropic API key |
+| `ANTHROPIC_BASE_URL` | No | Custom Anthropic endpoint (for AI Gateway) |
+| `SANDBOX_SLEEP_AFTER` | No | Container sleep timeout: `'never'` (default) or duration like `'10m'` |
+| `DEBUG_ROUTES` | No | Set to `'true'` to enable `/debug/*` routes |
+
+## API Endpoints
+
+Full API documentation: [docs/API.md](./docs/API.md)
+
+**Gateway Management:**
+- `GET /api/status` - Check gateway status
+- `POST /api/gateway/restart` - Restart the gateway
+
+**Dynamic Configuration:**
+- `GET /api/config` - Get current configuration
+- `POST /api/config/telegram` - Configure Telegram bot
+- `POST /api/config/discord` - Configure Discord bot
+- `POST /api/config/slack` - Configure Slack bot
+- `DELETE /api/config/:channel` - Remove channel configuration
+
+All API endpoints require:
+```
+Authorization: Bearer <MOLTBOT_GATEWAY_TOKEN>
+```
+
+## Gateway Token Authentication
+
+The `MOLTBOT_GATEWAY_TOKEN` serves dual purposes:
+
+1. **API Authentication**: Required as Bearer token for all API endpoints
+2. **Gateway Access**: Required as query parameter for the Control UI
+
+Access the Control UI:
+```
+https://your-worker.workers.dev/?token=<MOLTBOT_GATEWAY_TOKEN>
+```
+
+Connect via WebSocket:
+```
+wss://your-worker.workers.dev/ws?token=<MOLTBOT_GATEWAY_TOKEN>
+```
 
 ## Container Lifecycle
 
@@ -120,7 +169,7 @@ npx wrangler secret put SANDBOX_SLEEP_AFTER
 # Enter: 10m (or 1h, 30m, etc.)
 ```
 
-**Note:** When the container sleeps and restarts, all paired devices and conversation history will be lost in this simplified version.
+**Note:** When the container sleeps and restarts, all channel configurations will be lost. You'll need to reconfigure via API.
 
 ## Debug Endpoints
 
@@ -130,53 +179,10 @@ Debug endpoints are available at `/debug/*` when enabled (requires `DEBUG_ROUTES
 - `GET /debug/logs?id=<process_id>` - Get logs for a specific process
 - `GET /debug/version` - Get container and moltbot version info
 
-## Optional: Chat Channels
-
-### Telegram
-
+Enable debug routes:
 ```bash
-npx wrangler secret put TELEGRAM_BOT_TOKEN
-npm run deploy
-```
-
-### Discord
-
-```bash
-npx wrangler secret put DISCORD_BOT_TOKEN
-npm run deploy
-```
-
-### Slack
-
-```bash
-npx wrangler secret put SLACK_BOT_TOKEN
-npx wrangler secret put SLACK_APP_TOKEN
-npm run deploy
-```
-
-## Optional: Cloudflare AI Gateway
-
-You can route API requests through [Cloudflare AI Gateway](https://developers.cloudflare.com/ai-gateway/) for caching, rate limiting, analytics, and cost tracking.
-
-### Setup
-
-1. Create an AI Gateway in the [AI Gateway section](https://dash.cloudflare.com/?to=/:account/ai/ai-gateway/create-gateway)
-2. Add a provider (e.g., Anthropic) to your gateway
-3. Set the gateway secrets:
-
-```bash
-# Your provider's API key
-npx wrangler secret put AI_GATEWAY_API_KEY
-
-# Your AI Gateway endpoint URL
-npx wrangler secret put AI_GATEWAY_BASE_URL
-# Enter: https://gateway.ai.cloudflare.com/v1/{account_id}/{gateway_id}/anthropic
-```
-
-4. Redeploy:
-
-```bash
-npm run deploy
+npx wrangler secret put DEBUG_ROUTES
+# Enter: true
 ```
 
 ## Local Development
@@ -184,58 +190,88 @@ npm run deploy
 ```bash
 npm install
 cp .dev.vars.example .dev.vars
-# Edit .dev.vars with your ANTHROPIC_API_KEY
+# Edit .dev.vars with your tokens
 npm run start
 ```
 
-For local development, create `.dev.vars`:
-
+Example `.dev.vars`:
 ```bash
 ANTHROPIC_API_KEY=sk-ant-...
-DEV_MODE=true           # Skips device pairing
-DEBUG_ROUTES=true       # Enables /debug/* routes
+MOLTBOT_GATEWAY_TOKEN=my-dev-token
+DEBUG_ROUTES=true
 ```
 
 ### WebSocket Limitations
 
-Local development with `wrangler dev` has issues proxying WebSocket connections through the sandbox. HTTP requests work but WebSocket connections may fail. Deploy to Cloudflare for full functionality.
+Local development (`wrangler dev`) has [limited WebSocket support](https://developers.cloudflare.com/workers/runtime-apis/websockets/#websockets-in-the-devtools). The gateway UI may not work fully in dev mode. Deploy to test WebSocket functionality.
 
-## All Secrets Reference
+## Comparison with Original
 
-| Secret | Required | Description |
-|--------|----------|-------------|
-| `ANTHROPIC_API_KEY` | Yes* | Direct Anthropic API key (or use AI Gateway) |
-| `MOLTBOT_GATEWAY_TOKEN` | Yes | Gateway token for authentication |
-| `AI_GATEWAY_API_KEY` | Yes* | API key for AI Gateway provider (alternative to ANTHROPIC_API_KEY) |
-| `AI_GATEWAY_BASE_URL` | No | AI Gateway endpoint URL (required when using AI_GATEWAY_API_KEY) |
-| `ANTHROPIC_BASE_URL` | No | Direct Anthropic API base URL (fallback) |
-| `OPENAI_API_KEY` | No | OpenAI API key (alternative provider) |
-| `DEV_MODE` | No | Set to `true` to bypass device pairing (local dev only) |
-| `DEBUG_ROUTES` | No | Set to `true` to enable `/debug/*` routes |
-| `SANDBOX_SLEEP_AFTER` | No | Container sleep timeout: `never` (default) or duration like `10m`, `1h` |
-| `TELEGRAM_BOT_TOKEN` | No | Telegram bot token |
-| `TELEGRAM_DM_POLICY` | No | Telegram DM policy: `pairing` (default) or `open` |
-| `DISCORD_BOT_TOKEN` | No | Discord bot token |
-| `DISCORD_DM_POLICY` | No | Discord DM policy: `pairing` (default) or `open` |
-| `SLACK_BOT_TOKEN` | No | Slack bot token |
-| `SLACK_APP_TOKEN` | No | Slack app token |
+This fork differs from the upstream moltworker in the following ways:
+
+| Feature | This Fork | Original |
+|---------|-----------|----------|
+| **Configuration** | API-driven | Environment variables |
+| **Admin UI** | No Web UI | React SPA at `/_admin/` |
+| **Channel Setup** | Runtime via API | Deploy-time via secrets |
+| **Device Pairing** | Bypassed (DEV_MODE) | Required, managed via UI |
+| **Environment Vars** | 3 required | 10+ optional |
+| **Use Case** | Programmatic control | Manual management |
+
+## Why API-Driven?
+
+- ✅ **No Redeployment**: Change configuration without `wrangler deploy`
+- ✅ **Simpler Architecture**: No React frontend, no asset building
+- ✅ **CI/CD Friendly**: Automate channel management via scripts
+- ✅ **Multi-Tenant Ready**: Each deployment can have different configs
+- ✅ **Smaller Codebase**: ~40% less code
+
+## Known Limitations
+
+- **No Persistence**: Configuration is stored in container memory. Container restarts lose config.
+- **No Device Management UI**: Device pairing is bypassed (DEV_MODE enabled by default).
+- **Manual API Calls**: No GUI for configuration management.
+
+To add persistence, consider integrating Cloudflare R2 or KV storage.
 
 ## Troubleshooting
 
-**`npm run dev` fails with an `Unauthorized` error:** You need to enable Cloudflare Containers in the [Containers dashboard](https://dash.cloudflare.com/?to=/:account/workers/containers)
+**Gateway not starting:**
+```bash
+# Check logs
+wrangler tail
 
-**Gateway fails to start:** Check `npx wrangler secret list` and `npx wrangler tail`
+# Restart gateway via API
+curl -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  https://your-worker.workers.dev/api/gateway/restart
+```
 
-**Config changes not working:** Edit the `# Build cache bust:` comment in `Dockerfile` and redeploy
+**Configuration not applying:**
+```bash
+# Check current config
+curl -H "Authorization: Bearer $TOKEN" \
+  https://your-worker.workers.dev/api/config
 
-**Slow first request:** Cold starts take 1-2 minutes. Subsequent requests are faster.
+# Restart to apply changes
+curl -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  https://your-worker.workers.dev/api/gateway/restart
+```
 
-**Devices not appearing in admin UI:** Device list commands take 10-15 seconds due to WebSocket connection overhead. Wait and refresh.
+**401 Unauthorized:**
+- Verify `MOLTBOT_GATEWAY_TOKEN` is set: `wrangler secret list`
+- Check Authorization header format: `Bearer <token>`
 
-**WebSocket issues in local development:** `wrangler dev` has known limitations with WebSocket proxying through the sandbox. Deploy to Cloudflare for full functionality.
+## Contributing
 
-## Links
+This is a demo project. For production use, consider adding:
 
-- [OpenClaw](https://github.com/openclaw/openclaw)
-- [OpenClaw Docs](https://docs.openclaw.ai/)
-- [Cloudflare Sandbox Docs](https://developers.cloudflare.com/sandbox/)
+- Configuration persistence (R2/KV)
+- Web UI for API management
+- Multi-user authentication
+- Rate limiting
+
+## License
+
+MIT

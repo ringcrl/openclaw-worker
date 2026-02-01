@@ -1,23 +1,19 @@
 /**
- * Moltbot + Cloudflare Sandbox
+ * Moltbot + Cloudflare Sandbox (API-Driven Configuration)
  *
  * This Worker runs Moltbot personal AI assistant in a Cloudflare Sandbox container.
- * It proxies all requests to the Moltbot Gateway's web UI and WebSocket endpoint.
+ * All configuration is managed via API, not environment variables.
  *
  * Features:
- * - Web UI (Control Dashboard + WebChat) at /
+ * - Pure API-driven architecture (no Web UI)
+ * - Bearer token authentication for all API endpoints
+ * - Dynamic channel configuration (Telegram, Discord, Slack)
  * - WebSocket support for real-time communication
- * - Admin UI at /_admin/ for device management
- * - Configuration via environment secrets
  *
- * Required secrets (set via `wrangler secret put`):
- * - ANTHROPIC_API_KEY: Your Anthropic API key
- * - MOLTBOT_GATEWAY_TOKEN: Token to protect gateway access
- *
- * Optional secrets:
- * - TELEGRAM_BOT_TOKEN: Telegram bot token
- * - DISCORD_BOT_TOKEN: Discord bot token
- * - SLACK_BOT_TOKEN + SLACK_APP_TOKEN: Slack tokens
+ * Required environment variables (only 3):
+ * - MOLTBOT_GATEWAY_TOKEN: Bearer token for API authentication
+ * - ANTHROPIC_API_KEY: Anthropic API key for AI provider
+ * - ANTHROPIC_BASE_URL: (Optional) Custom Anthropic endpoint
  */
 
 import { Hono } from 'hono';
@@ -26,7 +22,7 @@ import { getSandbox, Sandbox, type SandboxOptions } from '@cloudflare/sandbox';
 import type { AppEnv, MoltbotEnv } from './types';
 import { MOLTBOT_PORT } from './config';
 import { ensureMoltbotGateway, findExistingMoltbotProcess } from './gateway';
-import { publicRoutes, api, adminUi, debug } from './routes';
+import { publicRoutes, api, debug } from './routes';
 import loadingPageHtml from './assets/loading.html';
 import configErrorHtml from './assets/config-error.html';
 
@@ -39,7 +35,7 @@ function transformErrorMessage(message: string, host: string): string {
   }
   
   if (message.includes('pairing required')) {
-    return `Pairing required. Visit https://${host}/_admin/`;
+    return `Device pairing bypassed (DEV_MODE enabled)`;
   }
   
   return message;
@@ -49,7 +45,7 @@ export { Sandbox };
 
 /**
  * Validate required environment variables.
- * Returns an array of missing variable descriptions, or empty array if all are set.
+ * Only 3 environment variables are required for API-driven configuration.
  */
 function validateRequiredEnv(env: MoltbotEnv): string[] {
   const missing: string[] = [];
@@ -58,15 +54,8 @@ function validateRequiredEnv(env: MoltbotEnv): string[] {
     missing.push('MOLTBOT_GATEWAY_TOKEN');
   }
 
-  // Check for AI Gateway or direct Anthropic configuration
-  if (env.AI_GATEWAY_API_KEY) {
-    // AI Gateway requires both API key and base URL
-    if (!env.AI_GATEWAY_BASE_URL) {
-      missing.push('AI_GATEWAY_BASE_URL (required when using AI_GATEWAY_API_KEY)');
-    }
-  } else if (!env.ANTHROPIC_API_KEY) {
-    // Direct Anthropic access requires API key
-    missing.push('ANTHROPIC_API_KEY or AI_GATEWAY_API_KEY');
+  if (!env.ANTHROPIC_API_KEY) {
+    missing.push('ANTHROPIC_API_KEY');
   }
 
   return missing;
@@ -107,7 +96,6 @@ app.use('*', async (c, next) => {
   const url = new URL(c.req.url);
   console.log(`[REQ] ${c.req.method} ${url.pathname}${url.search}`);
   console.log(`[REQ] Has ANTHROPIC_API_KEY: ${!!c.env.ANTHROPIC_API_KEY}`);
-  console.log(`[REQ] DEV_MODE: ${c.env.DEV_MODE}`);
   console.log(`[REQ] DEBUG_ROUTES: ${c.env.DEBUG_ROUTES}`);
   await next();
 });
@@ -125,24 +113,19 @@ app.use('*', async (c, next) => {
 // =============================================================================
 
 // Mount public routes first
-// Includes: /sandbox-health, /logo.png, /logo-small.png, /api/status, /_admin/assets/*
+// Includes: /sandbox-health, /logo.png, /logo-small.png
 app.route('/', publicRoutes);
 
 // =============================================================================
 // PROTECTED ROUTES: Require valid configuration
 // =============================================================================
 
-// Middleware: Validate required environment variables (skip in dev mode and for debug routes)
+// Middleware: Validate required environment variables (skip for debug routes)
 app.use('*', async (c, next) => {
   const url = new URL(c.req.url);
   
   // Skip validation for debug routes (they have their own enable check)
   if (url.pathname.startsWith('/debug')) {
-    return next();
-  }
-  
-  // Skip validation in dev mode
-  if (c.env.DEV_MODE === 'true') {
     return next();
   }
   
@@ -169,11 +152,8 @@ app.use('*', async (c, next) => {
   return next();
 });
 
-// Mount API routes
+// Mount API routes (Bearer token authentication required)
 app.route('/api', api);
-
-// Mount Admin UI routes
-app.route('/_admin', adminUi);
 
 // Mount debug routes (only when DEBUG_ROUTES is enabled)
 app.use('/debug/*', async (c, next) => {
